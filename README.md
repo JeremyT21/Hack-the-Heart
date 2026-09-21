@@ -86,61 +86,54 @@ For each person's reading of the conversation, five signals are converted to num
 
 | Signal | How the categories become numbers | Weight |
 | --- | --- | ---: |
-| Compatibility, $C$ | Weak = 0, mixed = 50, strong = 100 | 25% |
-| Friction, $F$ | High = 0, moderate = 35, low = 70, none = 100 | 20% |
-| Reciprocity, $R$ | Weak = 0, mixed = 50, strong = 100 | 20% |
-| Pacing, $P$ | Mismatched = 0, mixed = 50, aligned = 100 | 15% |
-| Connection, $N$ | Absent = 0, uncertain = 50, present = 100 | 20% |
+| Compatibility, C | Weak = 0, mixed = 50, strong = 100 | 25% |
+| Friction, F | High = 0, moderate = 35, low = 70, none = 100 | 20% |
+| Reciprocity, R | Weak = 0, mixed = 50, strong = 100 | 20% |
+| Pacing, P | Mismatched = 0, mixed = 50, aligned = 100 | 15% |
+| Connection, N | Absent = 0, uncertain = 50, present = 100 | 20% |
 
-The base score for person $i$ is:
+The base score for person i is:
 
-$$
-b_i = \operatorname{round}\left(\operatorname{clamp}_{[0,100]}\left(0.25C_i + 0.20F_i + 0.20R_i + 0.15P_i + 0.20N_i\right)\right)
-$$
+```text
+bᵢ = round(clamp[0,100](0.25Cᵢ + 0.20Fᵢ + 0.20Rᵢ + 0.15Pᵢ + 0.20Nᵢ))
+```
 
 The weights add up to one, so the result stays on a 0 to 100 scale. Friction runs backwards because more friction should contribute less. Compatibility gets the largest share, pacing the smallest, and the other three signals get equal shares. This makes the rule easy to inspect and tune. These are hand-set application weights, not coefficients fitted to successful relationships, and the code does not establish that these exact weights are optimal.
 
 For example, strong compatibility, low friction, mixed reciprocity, aligned pacing and uncertain connection give:
 
-$$
-b_i = \operatorname{round}(25 + 14 + 10 + 15 + 10) = 74
-$$
+```text
+bᵢ = round(25 + 14 + 10 + 15 + 10) = 74
+```
 
 There is also a shared-ground rule. If either analyst marks shared ground as `limited`, both scores become 50. This represents a neutral outcome: enough conversation to find little common ground, without treating that as a hard conflict. `Unclear` is a separate category and does not trigger this rule.
 
-$$
-n_i =
-\begin{cases}
-50 & \text{if either analyst reports limited shared ground} \\
-b_i & \text{otherwise}
-\end{cases}
-$$
+| Condition | Score nᵢ |
+| --- | ---: |
+| Either analyst reports limited shared ground | 50 |
+| Otherwise | bᵢ |
 
 If both analysts report an agreement to meet, the code also puts a floor of 1 on each score. That only changes a zero; it does not turn an agreement into a high score. The final number is the rounded average:
 
-$$
-s_i =
-\begin{cases}
-\max(1,n_i) & \text{if both meeting intents are agreed} \\
-n_i & \text{otherwise}
-\end{cases}
-\qquad
-S = \operatorname{round}\left(\frac{s_A+s_B}{2}\right)
-$$
+| Condition | Score sᵢ |
+| --- | ---: |
+| Both meeting intents are agreed | max(1, nᵢ) |
+| Otherwise | nᵢ |
+
+```text
+S = round((sₐ + sᵦ) / 2)
+```
 
 Meeting intent is stored separately. Both sides must say `agreed` for a mutual agreement. Either side saying `declined` makes it a decline. Otherwise, an `interested` response makes it interested, and the remaining cases are unclear. This keeps being willing to meet separate from the numeric score.
 
 The arithmetic is reproducible for the same analyst outputs. The model's interpretation can still vary between runs. If the final analysis fails, the conversation can finish with no score.
 
-The repository also retains the earlier form-answer score. It compares children, relationship type, planning, communication and whether the two people share at least one explicitly entered personal value. If $K$ is the set of known comparisons and $a_j$ is 1 for agreement and 0 for difference:
+The repository also retains the earlier form-answer score. It compares children, relationship type, planning, communication and whether the two people share at least one explicitly entered personal value. If K is the set of known comparisons and aⱼ is 1 for agreement and 0 for difference:
 
-$$
-S_{\text{profile}} =
-\begin{cases}
-\operatorname{round}\left(100\frac{\sum_{j\in K}a_j}{|K|}\right) & |K|>0 \\
-\text{null} & |K|=0
-\end{cases}
-$$
+| Condition | Profile score |
+| --- | --- |
+| At least one known comparison | round(100 × sum(aⱼ) / number of known comparisons) |
+| No known comparisons | null |
 
 An unsure or undisclosed answer is left out. Personal values count as one comparison only when both people have entered values. Three agreements out of four known comparisons give 75, with coverage of four. We used this simple proportion so missing information would not automatically become a disagreement. Current conversations display the conversation analysis score instead. Neither number is a probability that a relationship will work.
 
